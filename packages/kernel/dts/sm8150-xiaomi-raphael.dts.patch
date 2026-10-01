@@ -1,0 +1,26 @@
+From: Armada <noreply@armada.local>
+Subject: [PATCH] arm64: dts: qcom: sm8150-xiaomi-raphael: drop the IPA node
+
+The IPA node (&ipa) only exists on the soc/qualcomm-sm8150 branch
+"andrew/6.16-ipa", not on the main development branch the rest of this
+tree tracks, so the board DTS cannot resolve the label as written.
+Drop the override so the DTB builds. Consequence: no IPA -> no mobile data.
+
+---
+index eaf9f7f..a45d0d7 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-raphael.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-raphael.dts
+@@ -549,13 +549,6 @@
+ 	};
+ };
+ 
+-&ipa {
+-	status = "okay";
+-	qcom,gsi-loader = "self";
+-	memory-region = <&ipa_fw_mem>;
+-	firmware-name = "qcom/sm8150/Xiaomi/raphael/ipa_fws.mbn";
+-};
+-
+ &mdss_dsi0 {
+ 	vdda-supply = <&vdda_mipi_dsi0_1p2>;
+ 	status = "okay";
