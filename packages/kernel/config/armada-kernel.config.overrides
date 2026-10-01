@@ -272,6 +272,20 @@ CONFIG_TOUCHSCREEN_CHIPONE_TDDI=m           # KONKR Pocket FIT + Elite (ICNL9922
 CONFIG_TOUCHSCREEN_GOODIX=m                 # Pocket S2 + Pocket DS
 CONFIG_ATH12K=m                             # WCN7850/WCN7860 Wi-Fi (SM8650 + SM8750)
 
+# ============== SM8150 (Xiaomi Redmi K20 Pro / Mi 9T Pro, raphael) ==============
+# SM_GCC_8150 is NOT in arm64 defconfig (defconfig lacks both 8150 and 8250 GCC),
+# so it must be requested explicitly; without it the board cannot bring up UART
+# or any consumer clock.
+CONFIG_SM_GCC_8150=y
+CONFIG_SM_VIDEOCC_8150=y
+CONFIG_SM_CAMCC_8150=m
+CONFIG_PINCTRL_SM8150=y
+CONFIG_INTERCONNECT_QCOM_SM8150=y
+CONFIG_DRM_PANEL_SAMSUNG_AMS639RQ08=y       # K20 Pro panel (samsung,ams639rq08)
+# SM_GPUCC_8150 is already =y in arm64 defconfig. The SM8150 display clock has no
+# SM_DISPCC_8150 symbol: it is served by dispcc-sm8250.c ("qcom,sm8150-dispcc"),
+# i.e. CONFIG_SM_DISPCC_8250 set in the SM8250 block below.
+
 # ============== SM8250 handhelds ==============
 CONFIG_SM_GCC_8250=y
 CONFIG_SM_DISPCC_8250=y
