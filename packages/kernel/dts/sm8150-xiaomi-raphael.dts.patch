@@ -1,13 +1,22 @@
 From: Armada <noreply@armada.local>
-Subject: [PATCH] arm64: dts: qcom: sm8150-xiaomi-raphael: drop the IPA node
+Subject: [PATCH] arm64: dts: qcom: sm8150-xiaomi-raphael: drop redundant overrides
 
-The IPA node (&ipa) only exists on the soc/qualcomm-sm8150 branch
-"andrew/6.16-ipa", not on the main development branch the rest of this
-tree tracks, so the board DTS cannot resolve the label as written.
-Drop the override so the DTB builds. Consequence: no IPA -> no mobile data.
+Three blocks in the upstream board DTS cannot resolve against this tree:
+
+  * &ipa            - the IPA node only exists on the soc/qualcomm-sm8150
+                      branch "andrew/6.16-ipa", not on the main branch.
+  * &pm8150_rtc     - the rtc@6000 node carries no pm8150_rtc label, but
+                      patches/0102-...-nvmem-support already sets the same
+                      nvmem-cells/nvmem-cell-names properties on it.
+  * &pm8150_sdam_2  - the same patch already defines the pm8150_sdam_2 node
+                      and its rtc_offset child; redefining rtc_offset here
+                      would duplicate the label.
+
+Dropping them keeps the DTB buildable; the resulting behaviour matches what
+the board DTS intended (RTC offset nvmem wired, SDAM enabled).
 
 ---
-index eaf9f7f..a45d0d7 100644
+index eaf9f7f..dae6618 100644
 --- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-raphael.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-raphael.dts
 @@ -549,13 +549,6 @@
@@ -24,3 +33,23 @@ index eaf9f7f..a45d0d7 100644
  &mdss_dsi0 {
  	vdda-supply = <&vdda_mipi_dsi0_1p2>;
  	status = "okay";
+@@ -604,19 +597,6 @@
+ 	};
+ };
+ 
+-&pm8150_rtc {
+-       nvmem-cells = <&rtc_offset>;
+-       nvmem-cell-names = "offset";
+-       status = "okay";
+-};
+-
+-&pm8150_sdam_2 {
+-       status = "okay";
+-       rtc_offset: rtc-offset@bc {
+-               reg = <0xbc 0x4>;
+-       };
+-};
+-
+ &pm8150b_typec {
+ 	vdd-vbus-supply = <&pm8150b_vbus>;
+ 	vdd-pdphy-supply = <&vdda_usb_hs_3p1>;

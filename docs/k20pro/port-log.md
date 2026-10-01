@@ -76,8 +76,7 @@ push 分支 → 开 fork 内部 PR → CI 自动组装镜像并产出 armada-*.i
 | 文件 | 内容 |
 |---|---|
 | `packages/kernel/dts/sm8150-xiaomi-raphael.dts` | 板级设备树，**与上游逐字节一致**（sha256 `9cfcfe92…`，28546 B / 1086 行），来自 `soc/qualcomm-sm8150/linux` 分支 `sm8150/6.17` |
-| `packages/kernel/dts/sm8150-xiaomi-raphael.dts.patch` | 删掉 `&ipa` 覆盖块（该 label 只存在于特性分支 `andrew/6.16-ipa`，主分支无法解析） |
-| `packages/kernel/dts/sm8150-pmic-labels.patch` | 给主线的 `pm8150.dtsi` / `pm8150b.dtsi` 补上 raphael 引用的 `pm8150_rtc` / `pm8150_sdam_2` / `pm8150b_charger` / `pm8150b_fg` 及其 ADC 通道（纯增量） |
+| `packages/kernel/dts/sm8150-xiaomi-raphael.dts.patch` | 去掉 3 个在本内核树上**无法解析或冗余**的覆盖块：`&ipa`、`&pm8150_rtc`、`&pm8150_sdam_2`（原因见下方「CI 反馈与修正」） |
 | `system_files/usr/lib/armada/devices/xiaomi-raphael.conf` | 设备档案（`ARMADA_SOC_CLASS=SM8150`，竖屏 `normal`） |
 | `system_files/usr/lib/armada/supported-dtbs` | +1 行 `sm8150-xiaomi-raphael`（与 `dts/` **成对**修改） |
 | `system_files/usr/libexec/armada/device-env` | 新增 DT model 匹配 `"Xiaomi Redmi K20 Pro"` 与 `SM8150` CPU 拓扑分支 |
@@ -105,6 +104,37 @@ CONFIG_DRM_PANEL_SAMSUNG_AMS639RQ08=y   # 面板驱动已上游，但不在 defc
 2. **IPA / 移动数据**：本变更集删掉了 `&ipa` 段（见上）。`CONFIG_QCOM_IPA=m` 在 defconfig 里是有的，缺的是 SoC 侧 DT 节点（只在特性分支上）。
 3. **boot.img 几何**：Armada 的 `bootimg-args` 是给 ROCKNIX ABL 调优的（`pagesize 2048`、`ramdisk_offset 0x06000000`），而 raphael 需要 `pagesize 4096`、`base 0`、`ramdisk_offset 0` → 属 P3，本分支未改。
 4. **不 vendor 社区 dtsi**：社区树的 `sm8150.dtsi` 相对主线 7.2.6 **少了 40 行**（ICE 加密、UFS ICE 时钟、DP 像素时钟等），搬过来会造成回退，故只做纯增量补丁。
+
+### CI 反馈与修正（P2 第一次 CI 失败 → 已修）
+
+P2 第一次 CI（PR #2）在 `Build the remaining packages` 失败，日志显示：
+
+```
+==> Patches: 174 applied, 0 failed          ← Armada 自己的 174 个补丁全部成功
+1 out of 2 hunks FAILED -- saving rejects to file .../pm8150.dtsi.rej
+2 out of 4 hunks FAILED -- saving rejects to file .../pm8150b.dtsi.rej
+  ✗ sm8150-pmic-labels.patch failed
+```
+
+**根因**：最初的 `sm8150-pmic-labels.patch` 是照 **纯净 7.2.6** 生成的，但 `dts/*.patch` 是在 Armada 的 174 个补丁**之后**才应用 —— 其中已有两个补丁改过同样的文件：
+
+| Armada 补丁 | 文件 | 它已经做了什么 |
+|---|---|---|
+| `0004-pm8150b.patch` | `pm8150b.dtsi` | 已定义 `pm8150b_charger` / `pm8150b_fg` 等节点 |
+| `0102-…-pm8150-Add-nvmem-support-for-PM8150-R.patch` | `pm8150.dtsi` | 已在 `rtc@6000` 上设置 `nvmem-cells`/`nvmem-cell-names`，并新建 `pm8150_sdam_2: nvram@b100` 及其 `rtc_offset` 子节点 |
+| `0067-…-pm8150l-add-lcdb-node.patch` | `pm8150l.dtsi` | LCDB 节点 |
+
+> `0004-pm8150b.patch` 用的是 `diff -rupbN linux.orig/… linux/…` 旧式头部（不是 `a/` `b/`），最初检索时漏掉了它。
+
+**本地重建验证**（把这三个 Armada 补丁应用到主线 7.2.6 的 dtsi 之后）：
+
+- `pm8150_sdam_2`、`pm8150b_charger`、`pm8150b_fg` —— **已被 Armada 定义**；
+- `pm8150_rtc` —— 仍无 label，但 `0102` 已在同一节点上设置了**等价属性**；
+- 我们 DTS 里 `&pm8150_sdam_2 { rtc_offset: … }` 的**重定义会与 Armada 新建的同名 label 冲突**。
+
+**修正**（本提交）：**整个删除 `sm8150-pmic-labels.patch`**（不再打任何 dtsi），改由 `sm8150-xiaomi-raphael.dts.patch` 一并去掉这三个块。功能等价——RTC 的 offset nvmem 与 SDAM 由 Armada 的补丁提供，两个节点也没有 `status = "disabled"`，默认即 okay。
+
+**验证**：Armada 补丁（`0067` / `0004` / `0102`）+ 新 DTS 补丁之后，DTS 的 **82/82 个 label 引用全部可解析**（缺 0）。
 
 ### 本地验证（文本级，已通过）
 
